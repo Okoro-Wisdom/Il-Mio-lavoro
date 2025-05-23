@@ -2,11 +2,14 @@ import pygame
 import json
 import math
 import folder.content as content
+import folder.finestra_gioco_win as FinestraGiocoWin
+import folder.finestra_gioco_lose as FinestraGiocoLose
 import random
 
 # Dimensioni dello schermo
 SCREEN_WIDTH = content.SIZE_FRAME_X
 SCREEN_HEIGHT = content.SIZE_FRAME_Y
+NUMEOR_ORADA_MASSIMA = 20
 
 # Costanti per le dimensioni della cella
 CELL_SIZE = 128  # La dimensione della cella della griglia
@@ -20,7 +23,8 @@ class FinestraDiGioco:
         self.path_rects = []
         self.griglia_celle = 10  # La dimensione della griglia (10x10)
         self.load_map("valley")
-        self.soldi = 150  # Soldi iniziali
+        self.soldi = 250  # Soldi iniziali
+        self.vita_base = 1000
 
         # Carica immagini torrette
         self.sniper_img = pygame.image.load("assets/img/sniper.png").convert_alpha()
@@ -30,9 +34,9 @@ class FinestraDiGioco:
         self.background_img = pygame.image.load("assets/img/background_game.png").convert()  # Assicurati che l'immagine sia in un formato supportato
 
         self.turret_options = [
-            {"tipo": "sniper", "prezzo": 1000, "immagine": self.sniper_img},
-            {"tipo": "minigun", "prezzo": 150, "immagine": self.minigun_img},
-            {"tipo": "rocket", "prezzo": 500, "immagine": self.rocket_img},
+            {"tipo": "sniper", "prezzo": 1500, "immagine": self.sniper_img},
+            {"tipo": "minigun", "prezzo": 250, "immagine": self.minigun_img},
+            {"tipo": "rocket", "prezzo": 750, "immagine": self.rocket_img},
         ]
         self.selected_slot = None  # Track selected slot for turret purchase
         self.show_turret_menu = False  # To toggle turret selection menu visibility
@@ -82,7 +86,7 @@ class FinestraDiGioco:
         
     def aggiorna_nemici(self):
         for nemico in self.nemici:
-            nemico.aggiorna(self.screen)
+            nemico.aggiorna(self.screen,self)
         self.nemici = [n for n in self.nemici if n.vita > 0]
 
     def aggiorna_torrette(self):
@@ -100,6 +104,16 @@ class FinestraDiGioco:
         font = pygame.font.Font(None, 36)
         testo_soldi = font.render(f"Soldi: {self.soldi}", True, (255, 255, 255))
         self.screen.blit(testo_soldi, (10, 10))
+
+    def mostra_wave(self):
+        font = pygame.font.Font(None, 36)
+        testo_soldi = font.render(f"Wave: {self.numero_ondata} / {NUMEOR_ORADA_MASSIMA} ", True, (255, 255, 255))
+        self.screen.blit(testo_soldi, (SCREEN_WIDTH- SCREEN_WIDTH*0.5, 10))
+
+    def mostra_vita_base(self):
+        font = pygame.font.Font(None, 36)
+        testo_soldi = font.render(f"Vita: {self.vita_base}", True, (255, 255, 255))
+        self.screen.blit(testo_soldi, (SCREEN_WIDTH- SCREEN_WIDTH*0.1, 10))
 
     def disegna_menu_torrette(self,menu_x,menu_y):
      menu_width = 400
@@ -146,13 +160,13 @@ class FinestraDiGioco:
 
     def genera_ondata(self):
         for i in range(self.numero_ondata * 4):
-           self.nemici.append(Terminator(self.path, self.scale_x, self.scale_y))
+           self.nemici.append(Terminator(self.path, self.scale_x, self.scale_y,self.numero_ondata-1))
     
         for i in range(self.numero_ondata * 3):
-           self.nemici.append(Assault(self.path, self.scale_x, self.scale_y))
+           self.nemici.append(Assault(self.path, self.scale_x, self.scale_y,self.numero_ondata-1))
     
         for i in range(self.numero_ondata * 2):
-            self.nemici.append(Tank(self.path, self.scale_x, self.scale_y))
+            self.nemici.append(Tank(self.path, self.scale_x, self.scale_y,self.numero_ondata-1))
 
 
     def run(self):
@@ -166,7 +180,11 @@ class FinestraDiGioco:
         while running:
             if len(self.nemici) == 0:
                 self.numero_ondata += 1
-                self.genera_ondata()
+                if self.numero_ondata > NUMEOR_ORADA_MASSIMA:
+                   gioco = FinestraGiocoWin.FinestraDiGiocoWin(self.screen)
+                   gioco.run()
+                else:
+                   self.genera_ondata()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False  # Termina il ciclo se l'utente chiude la finestra
@@ -184,6 +202,10 @@ class FinestraDiGioco:
 
             # UI - Mostra i soldi
             self.mostra_soldi()
+            
+            self.mostra_vita_base()
+
+            self.mostra_wave()
 
             # Gestisci il menu per acquistare torrette
             PLAY_MOUSE_POS = pygame.mouse.get_pos()
@@ -201,8 +223,8 @@ class FinestraDiGioco:
                     BUY_BUTTON = content.Button(
                         image=None,
                         pos=(x * CELL_SIZE, y * CELL_SIZE+50),
-                        text_input="+",
-                        font=content.get_font(75),
+                        text_input="X",
+                        font=content.get_font(20),
                         base_color="White",
                         hovering_color="Green"
                     )
@@ -225,7 +247,7 @@ class FinestraDiGioco:
 
 
             pygame.display.update()
-            clock.tick(60)
+            clock.tick(3000)
 
         pygame.quit()
 
@@ -244,32 +266,38 @@ class Nemico:
        self.rect = self.image.get_rect(center=(self.x, self.y))
 
 
-    def aggiorna(self,screen):
-       if self.indice_punto < len(self.path) - 1:
-        x1, y1 = self.path[self.indice_punto]
-        x2, y2 = self.path[self.indice_punto + 1]
+    def aggiorna(self,screen,finestra_di_gioco):
+        if self.indice_punto < len(self.path) - 1:
+            x1, y1 = self.path[self.indice_punto]
+            x2, y2 = self.path[self.indice_punto + 1]
 
-        x1 *= CELL_SIZE * self.scale_x
-        y1 *= CELL_SIZE * self.scale_y
-        x2 *= CELL_SIZE * self.scale_x
-        y2 *= CELL_SIZE * self.scale_y
+            x1 *= CELL_SIZE * self.scale_x
+            y1 *= CELL_SIZE * self.scale_y
+            x2 *= CELL_SIZE * self.scale_x
+            y2 *= CELL_SIZE * self.scale_y
 
-        dx, dy = x2 - x1, y2 - y1
-        distanza = math.hypot(dx, dy)
+            dx, dy = x2 - x1, y2 - y1
+            distanza = math.hypot(dx, dy)
 
-        if distanza != 0:
-            dx /= distanza
-            dy /= distanza
+            if distanza != 0:
+                dx /= distanza
+                dy /= distanza
 
-        self.x += dx * self.velocita
-        self.y += dy * self.velocita
+            self.x += dx * self.velocita
+            self.y += dy * self.velocita
 
-        if math.hypot(self.x - x2, self.y - y2) < self.velocita:
-            self.indice_punto += 1
+            if math.hypot(self.x - x2, self.y - y2) < 20:
+                self.indice_punto += 1
 
-       self.rect.center = (self.x+CELL_SIZE/2, self.y+CELL_SIZE/2)
+            self.rect.center = (self.x+CELL_SIZE/2, self.y+CELL_SIZE/2)
 
-       self.disegna(screen)
+            self.disegna(screen)
+        else: 
+            finestra_di_gioco.vita_base -= self.vita
+            self.vita = 0
+            if finestra_di_gioco.vita_base < 0:
+                gioco = FinestraGiocoLose.FinestraDiGiocoLose(finestra_di_gioco.screen)
+                gioco.run()
 
 
     def disegna(self,screen):
@@ -333,7 +361,7 @@ class Torretta:
                 else:
                     bersaglio.vita -= self.danno  # Danno diretto al nemico
                 
-                finestra_di_gioco.soldi += 5
+                finestra_di_gioco.soldi += 2
                 
                 self.timer_attacco = 0  # Reset del timer per il prossimo attacco
         self.disegna(screen)
@@ -352,16 +380,16 @@ class Torretta:
         #pygame.draw.circle(screen, (255, 0, 0), self.rect.center, self.raggio, 1)
 
 class Terminator(Nemico):
-    def __init__(self, path, scale_x=1.0, scale_y=1.0):
+    def __init__(self, path, scale_x=1.0, scale_y=1.0,ondata = 0):
         img = pygame.image.load("assets/img/terminator.png").convert_alpha()
-        super().__init__([img], path, vita=200, velocita=1.2, scale_x=scale_x, scale_y=scale_y)
+        super().__init__([img], path, vita=200+(ondata*10), velocita=1.2, scale_x=scale_x, scale_y=scale_y)
 
 class Assault(Nemico):
-    def __init__(self, path, scale_x=1.0, scale_y=1.0):
+    def __init__(self, path, scale_x=1.0, scale_y=1.0,ondata = 0):
         img = pygame.image.load("assets/img/assault.png").convert_alpha()
-        super().__init__([img], path, vita=100, velocita=1.8, scale_x=scale_x, scale_y=scale_y)
+        super().__init__([img], path, vita=100+(ondata*10), velocita=1.8, scale_x=scale_x, scale_y=scale_y)
 
 class Tank(Nemico):
-    def __init__(self, path, scale_x=1.0, scale_y=1.0):
+    def __init__(self, path, scale_x=1.0, scale_y=1.0,ondata = 0):
         img = pygame.image.load("assets/img/tank.png").convert_alpha()
-        super().__init__([img], path, vita=700, velocita=0.7, scale_x=scale_x, scale_y=scale_y)
+        super().__init__([img], path, vita=700+(ondata*10), velocita=0.7, scale_x=scale_x, scale_y=scale_y)
