@@ -7,9 +7,11 @@
         <nav>
             <ul>
                 <li><a href="/chi_sono">Chi sono</a></li>
-                <li><a href="/input">Input</a></li>
-                <li><a href="/counter">Counter</a></li>
-                <li><a href="/about">About</a></li>
+                <li><a href="/1_anno">I anno</a></li>
+                <li><a href="/2_anno">II anno</a></li>
+                <li><a href="/3_anno">III anno</a></li>
+                <li><a href="/4_anno">IV anno</a></li>
+                <li><a href="/5_anno">V anno</a></li>
             </ul>
         </nav>
         

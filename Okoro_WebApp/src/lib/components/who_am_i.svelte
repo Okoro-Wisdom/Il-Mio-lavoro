@@ -7,9 +7,9 @@
     export let height = 10;
 </script>
 
-<div>
+<div >
     <h1>Ciao sono {nome} {cognome} </h1>
-    <h2>Sono un dovente di informatica presso l'istituto</h2>
+    <h2>Sono un studente di informatica presso l'istituto Agnelli</h2>
     <img {src} alt="" width={width} height={height}>
 </div>
 
